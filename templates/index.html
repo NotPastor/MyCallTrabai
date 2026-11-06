@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atividade Prática 01: Municípios</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+  <header class="topo">
+    <h1>Atividade Prática 01: Municípios do Nordeste</h1>
+    <p>Gerenciamento de Municípios (Base em Memória)</p>
+  </header>
+
+  <main class="container pagina">
+    <!-- Cartões de metadados -->
+    <section class="row g-3 mb-4">
+      <div class="col-6 col-lg-3"><div class="info-card"><i class="bi bi-map"></i><div>Região:<br> metadados.regiao </div></div></div>
+      <div class="col-6 col-lg-3"><div class="info-card"><i class="bi bi-flag"></i><div>País:<br>{{ metadados.pais </div></div></div>
+      <div class="col-6 col-lg-3"><div class="info-card"><i class="bi bi-people-fill"></i><div>Total:<br><span id="total">{{ metadados.total_municipios }}</span></div></div></div>
+      <div class="col-6 col-lg-3"><div class="info-card"><i class="bi bi-info-circle"></i><div>Fonte:<br>{{ metadados.fonte_dados_populacao }}</div></div></div>
+    </section>
+
+    <div id="alerta"></div>
+
+    <div class="row g-4">
+      <!-- Formulário -->
+      <section class="col-lg-6">
+        <div class="card">
+          <div class="card-header"><h2>Cadastrar / Atualizar Município</h2></div>
+          <div class="card-body">
+            <form id="form-municipio" autocomplete="off">
+              <label class="form-label" for="nome">Nome do Município</label>
+              <input class="form-control mb-3" id="nome" required>
+
+              <label class="form-label" for="id_ibge">ID IBGE</label>
+              <input class="form-control mb-3" id="id_ibge" type="number" required>
+
+              <div class="row">
+                <div class="col-8 mb-3">
+                  <label class="form-label" for="estado">Estado</label>
+                  <input class="form-control" id="estado" required>
+                </div>
+                <div class="col-4 mb-3">
+                  <label class="form-label" for="sigla_uf">UF</label>
+                  <input class="form-control" id="sigla_uf" maxlength="2" required>
+                </div>
+              </div>
+
+              <label class="form-label" for="populacao_estimada">População Estimada</label>
+              <input class="form-control mb-2" id="populacao_estimada" type="number" min="0" required>
+
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="capital">
+                <label class="form-check-label" for="capital">Capital?</label>
+              </div>
+
+              <button type="submit" class="btn btn-success">Salvar / Atualizar</button>
+              <button type="button" class="btn btn-primary" id="btn-buscar">Buscar por Nome</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Lista -->
+      <section class="col-lg-6">
+        <div class="card">
+          <div class="card-header"><h2>Lista de Municípios</h2></div>
+          <div class="card-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-7">
+                <label class="form-label" for="busca">Busca</label>
+                <input class="form-control" id="busca" placeholder="Busca">
+              </div>
+              <div class="col-md-5">
+                <label class="form-label" for="filtro-uf">Filtrar por UF</label>
+                <input class="form-control" id="filtro-uf" placeholder="ex: CE" maxlength="2">
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <a class="btn btn-outline-secondary" href="{{ url_for('exportar_json') }}">
+                <i class="bi bi-download"></i> Baixar JSON
+              </a>
+              <button class="btn btn-success" id="btn-novo">Cadastrar Novo</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr><th>Nome</th><th>UF</th><th>Capital</th><th>População</th><th>ID IBGE</th><th>Ações</th></tr>
+                </thead>
+                <tbody id="tabela"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="rodape">Desenvolvido em <a href="https://flask.palletsprojects.com/">Flask</a> | Manipulação de Dicionários</footer>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let editando = null;   // nome do município em edição (null = novo cadastro)
+    let cache = {};
+
+    function mostrarAlerta(msg, tipo = "success") {
+      $("alerta").innerHTML = `<div class="alert alert-${tipo} alert-dismissible fade show">${msg}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+    }
+
+    function esc(t) {
+      const d = document.createElement("div");
+      d.textContent = t;
+      return d.innerHTML;
+    }
+
+    async function carregar() {
+      const uf = $("filtro-uf").value.trim();
+      const resp = await fetch("/municipios" + (uf ? `?uf=${encodeURIComponent(uf)}` : ""));
+      cache = await resp.json();
+      renderizar();
+      // total geral (sem filtro)
+      const todos = await (await fetch("/municipios")).json();
+      $("total").textContent = Object.keys(todos).length;
+    }
+
+    function renderizar() {
+      const termo = $("busca").value.trim().toLowerCase();
+      const linhas = Object.entries(cache)
+        .filter(([nome]) => nome.toLowerCase().includes(termo))
+        .map(([nome, d]) => `
+          <tr>
+            <td>${esc(nome)}</td>
+            <td>${esc(d.sigla_uf)}</td>
+            <td>${d.capital ? "Sim" : "Não"}</td>
+            <td>${d.populacao_estimada.toLocaleString("pt-BR")}</td>
+            <td>${d.id_ibge}</td>
+            <td class="acoes">
+              <button class="btn btn-primary btn-sm" data-editar="${esc(nome)}" title="Editar"><i class="bi bi-pencil-fill"></i></button>
+              <button class="btn btn-danger btn-sm" data-excluir="${esc(nome)}" title="Excluir"><i class="bi bi-trash-fill"></i></button>
+            </td>
+          </tr>`).join("");
+      $("tabela").innerHTML = linhas || `<tr><td colspan="6" class="text-center text-muted">Nenhum município encontrado.</td></tr>`;
+    }
+
+    function preencher(nome, d) {
+      editando = nome;
+      $("nome").value = nome;
+      $("nome").readOnly = true;
+      $("id_ibge").value = d.id_ibge;
+      $("estado").value = d.estado;
+      $("sigla_uf").value = d.sigla_uf;
+      $("populacao_estimada").value = d.populacao_estimada;
+      $("capital").checked = d.capital;
+    }
+
+    function limpar() {
+      editando = null;
+      $("form-municipio").reset();
+      $("nome").readOnly = false;
+      $("nome").focus();
+    }
+
+    $("form-municipio").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const dados = {
+        id_ibge: Number($("id_ibge").value),
+        estado: $("estado").value,
+        sigla_uf: $("sigla_uf").value,
+        capital: $("capital").checked,
+        populacao_estimada: Number($("populacao_estimada").value),
+      };
+      const nome = $("nome").value.trim();
+      const ehEdicao = editando !== null;
+      const resp = await fetch(ehEdicao ? `/municipios/${encodeURIComponent(editando)}` : "/municipios", {
+        method: ehEdicao ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ehEdicao ? dados : { nome, ...dados }),
+      });
+      const json = await resp.json();
+      if (resp.ok) {
+        mostrarAlerta(json.mensagem);
+        limpar();
+        carregar();
+      } else {
+        mostrarAlerta(json.erro || "Erro ao salvar.", "danger");
+      }
+    });
+
+    $("btn-buscar").addEventListener("click", async () => {
+      const nome = $("nome").value.trim();
+      if (!nome) return mostrarAlerta("Digite o nome do município.", "warning");
+      const resp = await fetch(`/municipios/${encodeURIComponent(nome)}`);
+      const json = await resp.json();
+      if (resp.ok) preencher(nome, json[nome]);
+      else mostrarAlerta(json.erro, "danger");
+    });
+
+    $("btn-novo").addEventListener("click", limpar);
+    $("busca").addEventListener("input", renderizar);
+    $("filtro-uf").addEventListener("input", carregar);
+
+    $("tabela").addEventListener("click", async (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      if (btn.dataset.editar) {
+        preencher(btn.dataset.editar, cache[btn.dataset.editar]);
+      } else if (btn.dataset.excluir) {
+        const nome = btn.dataset.excluir;
+        if (!confirm(`Excluir ${nome}?`)) return;
+        const resp = await fetch(`/municipios/${encodeURIComponent(nome)}`, { method: "DELETE" });
+        const json = await resp.json();
+        mostrarAlerta(json.mensagem || json.erro, resp.ok ? "success" : "danger");
+        if (editando === nome) limpar();
+        carregar();
+      }
+    });
+
+    carregar();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+/* ===== Variáveis: mude aqui as cores principais ===== */
+:root {
+  --cor-topo: #243f6b;
+  --cor-fundo: #f1f3f8;
+  --cor-card: #ffffff;
+  --cor-borda: #dfe3ea;
+  --raio: 8px;
+}
+
+body {
+  background: var(--cor-fundo);
+  color: #212529;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Cabeçalho ===== */
+.topo {
+  background: var(--cor-topo);
+  color: #fff;
+  text-align: center;
+  padding: 3rem 1rem 6rem;
+}
+.topo h1 { font-size: 2.4rem; font-weight: 500; margin: 0; }
+.topo p  { font-size: 1.3rem; margin: .5rem 0 0; opacity: .9; }
+
+/* ===== Conteúdo (sobe sobre o cabeçalho) ===== */
+.pagina { margin-top: -3.5rem; flex: 1; }
+
+.info-card {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  background: var(--cor-card);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: .9rem 1.1rem;
+  font-size: 1.15rem;
+  line-height: 1.3;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+}
+.info-card i { font-size: 1.8rem; color: #5b6b86; }
+
+/* ===== Cards ===== */
+.card {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+}
+.card-header { background: #f5f5f5; }
+.card-header h2 { font-size: 1.6rem; font-weight: 500; margin: .3rem 0; }
+
+/* ===== Tabela ===== */
+.table th { font-weight: 600; }
+.acoes { white-space: nowrap; }
+.acoes .btn { margin-right: .25rem; }
+
+/* ===== Rodapé ===== */
+.rodape {
+  text-align: center;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  border-top: 1px solid var(--cor-borda);
+  font-size: .95rem;
+}
+.rodape a { color: var(--cor-topo); text-decoration: none; }
